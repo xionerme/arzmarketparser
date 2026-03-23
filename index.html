@@ -24,32 +24,63 @@
         radial-gradient(circle at top left, rgba(59, 130, 246, 0.10), transparent 28%),
         radial-gradient(circle at top right, rgba(139, 92, 246, 0.08), transparent 24%),
         linear-gradient(180deg, #f8fbff 0%, #eef4ff 45%, #e9eefb 100%);
+      --card-bg-dark: rgba(17, 24, 39, 0.72);
+      --card-bg-light: rgba(255, 255, 255, 0.82);
+      --dropdown-bg-dark: #152238;
+      --dropdown-bg-light: #ffffff;
+      --dropdown-shadow-dark: 0 18px 40px rgba(0, 0, 0, 0.22);
+      --dropdown-shadow-light: 0 18px 40px rgba(15, 23, 42, 0.14);
     }
 
     html, body {
       min-height: 100%;
+      margin: 0;
     }
 
     body {
       background: var(--site-bg-dark);
       background-attachment: fixed;
-      transition: background .25s ease;
+      background-repeat: no-repeat;
+      background-size: cover;
+      transition: background .25s ease, color .25s ease;
     }
 
     html[data-bs-theme="light"] body {
       background: var(--site-bg-light);
+      background-attachment: fixed;
+      background-repeat: no-repeat;
+      background-size: cover;
     }
 
     .page {
       min-height: 100vh;
+      position: relative;
     }
 
     .hero-card,
     .main-card,
     .results-card {
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(10px);
       overflow: visible;
       position: relative;
+      border: 1px solid var(--tblr-border-color);
+      background: var(--card-bg-dark);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+    }
+
+    html[data-bs-theme="light"] .hero-card,
+    html[data-bs-theme="light"] .main-card,
+    html[data-bs-theme="light"] .results-card {
+      background: var(--card-bg-light);
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .main-card {
+      z-index: 30;
+    }
+
+    .results-card {
+      z-index: 1;
     }
 
     .search-wrap {
@@ -58,20 +89,25 @@
     }
 
     .suggestions {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    right: 0;
-    z-index: 9999;
-    background: var(--tblr-bg-surface);
-    border: 1px solid var(--tblr-border-color);
-    border-radius: 14px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, .16);
-    overflow: hidden;
-    display: none;
-    max-height: 320px;
-    overflow-y: auto;
-  }
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      z-index: 9999;
+      background: var(--dropdown-bg-dark);
+      border: 1px solid var(--tblr-border-color);
+      border-radius: 14px;
+      box-shadow: var(--dropdown-shadow-dark);
+      overflow: hidden;
+      display: none;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    html[data-bs-theme="light"] .suggestions {
+      background: var(--dropdown-bg-light);
+      box-shadow: var(--dropdown-shadow-light);
+    }
 
     .suggestion-item {
       padding: 12px 14px;
@@ -141,7 +177,11 @@
       border: 1px solid var(--tblr-border-color);
       border-radius: 14px;
       padding: 12px 14px;
-      background: rgba(var(--tblr-bg-surface-rgb), .72);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    html[data-bs-theme="light"] .card-stat {
+      background: rgba(255, 255, 255, 0.72);
     }
 
     .theme-toggle-icon {
@@ -153,6 +193,20 @@
       border-radius: 16px;
       padding: 28px 18px;
       text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    html[data-bs-theme="light"] .empty-state {
+      background: rgba(255, 255, 255, 0.58);
+    }
+
+    .result-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--tblr-border-color);
+    }
+
+    html[data-bs-theme="light"] .result-card {
+      background: rgba(255, 255, 255, 0.74);
     }
 
     .result-card .card-body {
@@ -164,12 +218,10 @@
       margin-right: 6px;
     }
 
-    .main-card {
-      z-index: 30;
-    }
-    
-    .results-card {
-      z-index: 1;
+    .hero-actions {
+      display: flex;
+      gap: .75rem;
+      align-items: center;
     }
 
     @media (max-width: 767px) {
@@ -199,7 +251,7 @@
                   <div>
                     <h1 class="hero-title">Поиск предметов Arz Market</h1>
                     <div class="text-secondary mt-2">
-                      Вводи название предмета или ID, выбирай сервер, сортируй по цене и быстро смотри, кто продаёт нужный предмет.
+                      Вводи название предмета или ID, выбирай сервер или все сервера, сортируй по цене и быстро смотри, кто продаёт нужный предмет.
                     </div>
                   </div>
                 </div>
@@ -227,7 +279,7 @@
                       id="itemInput"
                       type="text"
                       class="form-control"
-                      placeholder="Например: Бандана, Твисти, 22, 5723"
+                      placeholder="Например: Бандана, Твисти, талон, 22, 5723"
                       autocomplete="off"
                     />
                     <div id="suggestions" class="suggestions"></div>
@@ -308,7 +360,6 @@
     const resultsEl = document.getElementById("results");
     const resultsMetaEl = document.getElementById("resultsMeta");
     const suggestionsEl = document.getElementById("suggestions");
-
     const themeToggleBtn = document.getElementById("themeToggleBtn");
     const themeToggleIcon = document.getElementById("themeToggleIcon");
     const themeToggleText = document.getElementById("themeToggleText");
@@ -344,7 +395,7 @@
     }
 
     function normalize(str) {
-      return String(str).trim().toLowerCase();
+      return String(str).trim().toLowerCase().replace(/\s+/g, " ");
     }
 
     function extractItemId(value) {
@@ -357,6 +408,11 @@
     }
 
     function fillServers() {
+      const allOption = document.createElement("option");
+      allOption.value = "all";
+      allOption.textContent = "Все сервера";
+      serverSelect.appendChild(allOption);
+
       for (let i = 0; i <= 32; i++) {
         const option = document.createElement("option");
         option.value = i;
@@ -379,34 +435,89 @@
       setStatus(`Загружено предметов: ${itemsEntries.length}`);
     }
 
-    function findItemMatches(query) {
+    function scoreItemMatch(item, queryRaw) {
+      const name = normalize(item.name);
+      const idText = String(item.id);
+      const query = normalize(queryRaw);
+
+      if (!query) return -1;
+
+      if (/^\d+$/.test(query)) {
+        if (idText === query) return 10000;
+        if (idText.includes(query)) return 6000;
+        return -1;
+      }
+
+      const words = query.split(" ").filter(Boolean);
+      const nameWords = name.split(" ").filter(Boolean);
+
+      let score = 0;
+      let matchedWords = 0;
+
+      if (name === query) return 20000;
+
+      for (const word of words) {
+        let matched = false;
+
+        for (const n of nameWords) {
+          if (n === word) {
+            score += 4000;
+            matched = true;
+            break;
+          }
+
+          if (n.startsWith(word)) {
+            score += 2500;
+            matched = true;
+            break;
+          }
+
+          if (n.includes(word)) {
+            score += 1500;
+            matched = true;
+            break;
+          }
+        }
+
+        if (matched) matchedWords++;
+      }
+
+      if (matchedWords === words.length) {
+        score += 5000;
+      }
+
+      if (matchedWords > 0) {
+        score += matchedWords * 500;
+      }
+
+      if (name.includes(query)) {
+        score += 2000;
+      }
+
+      if (score === 0) return -1;
+
+      return score;
+    }
+
+    function findItemMatches(query, limit = 8) {
       const q = normalize(query);
       if (!q) return [];
 
-      if (/^\d+$/.test(q)) {
-        const exact = itemsMap[q];
-        if (exact) return [{ id: Number(q), name: exact }];
-
-        return itemsEntries
-          .filter(item => String(item.id).includes(q))
-          .slice(0, 8);
-      }
-
-      const starts = [];
-      const contains = [];
+      const scored = [];
 
       for (const item of itemsEntries) {
-        const name = item.name.toLowerCase();
-        const idText = String(item.id);
-
-        if (name.startsWith(q) || idText.startsWith(q)) {
-          starts.push(item);
-        } else if (name.includes(q) || idText.includes(q)) {
-          contains.push(item);
+        const score = scoreItemMatch(item, q);
+        if (score >= 0) {
+          scored.push({ ...item, _score: score });
         }
       }
 
-      return [...starts, ...contains].slice(0, 8);
+      scored.sort((a, b) => {
+        if (b._score !== a._score) return b._score - a._score;
+        return a.name.localeCompare(b.name, "ru");
+      });
+
+      return scored.slice(0, limit).map(({ _score, ...item }) => item);
     }
 
     function hideSuggestions() {
@@ -462,25 +573,19 @@
 
     function renderMeta(targetItem, serverId, count) {
       resultsMetaEl.innerHTML = `
-        <div class="col-12 col-md-6 col-xl-3">
+        <div class="col-12 col-md-6 col-xl-4">
           <div class="card-stat">
             <div class="text-secondary small mb-1"><i class="ti ti-package"></i> Предмет</div>
             <div class="fw-bold">${escapeHtml(targetItem.name)}</div>
           </div>
         </div>
-        <div class="col-6 col-md-6 col-xl-3">
-          <div class="card-stat">
-            <div class="text-secondary small mb-1"><i class="ti ti-hash"></i> ID</div>
-            <div class="fw-bold mono">${targetItem.id}</div>
-          </div>
-        </div>
-        <div class="col-6 col-md-6 col-xl-3">
+        <div class="col-6 col-md-6 col-xl-4">
           <div class="card-stat">
             <div class="text-secondary small mb-1"><i class="ti ti-server"></i> Сервер</div>
-            <div class="fw-bold mono">${serverId}</div>
+            <div class="fw-bold mono">${escapeHtml(String(serverId))}</div>
           </div>
         </div>
-        <div class="col-12 col-md-6 col-xl-3">
+        <div class="col-6 col-md-12 col-xl-4">
           <div class="card-stat">
             <div class="text-secondary small mb-1"><i class="ti ti-list-search"></i> Найдено</div>
             <div class="fw-bold mono">${count}</div>
@@ -492,7 +597,7 @@
     function sortResults(list) {
       const mode = sortSelect.value;
 
-      const sorted = [...list].sort((a, b) => {
+      return [...list].sort((a, b) => {
         const aPrice = a.price == null ? (mode === "price-asc" ? Infinity : -Infinity) : Number(a.price);
         const bPrice = b.price == null ? (mode === "price-asc" ? Infinity : -Infinity) : Number(b.price);
 
@@ -502,8 +607,6 @@
 
         return aPrice - bPrice;
       });
-
-      return sorted;
     }
 
     function renderResults(found) {
@@ -545,13 +648,6 @@
                 <div class="row g-3">
                   <div class="col-6">
                     <div class="text-secondary small">
-                      <i class="ti ti-hash"></i>ID предмета
-                    </div>
-                    <div class="fw-bold mono">${entry.itemId}</div>
-                  </div>
-
-                  <div class="col-6">
-                    <div class="text-secondary small">
                       <i class="ti ti-server"></i>Сервер
                     </div>
                     <div class="fw-bold mono">${entry.serverId ?? "—"}</div>
@@ -571,7 +667,7 @@
                     <div class="fw-bold">${entry.count ?? "—"}</div>
                   </div>
 
-                  <div class="col-12">
+                  <div class="col-6">
                     <div class="text-secondary small">
                       <i class="ti ti-wallet"></i>Цена
                     </div>
@@ -610,7 +706,8 @@
         return;
       }
 
-      const matches = findItemMatches(query);
+      const matches = findItemMatches(query, 20);
+
       if (!matches.length) {
         setStatus("Предмет не найден.");
         resultsEl.innerHTML = `
@@ -627,20 +724,41 @@
         return;
       }
 
-      let targetItem;
-      if (/^\d+$/.test(query)) {
-        targetItem = matches[0];
-      } else {
-        targetItem = matches.find(x => normalize(x.name) === normalize(query)) || matches[0];
-      }
+      const targetItem = matches[0];
+      const displayServer = serverId === "all" ? "Все сервера" : `Сервер ${serverId}`;
 
-      setStatus(`Ищу ${targetItem.name} на сервере ${serverId}...`);
+      setStatus(`Ищу ${targetItem.name}...`);
 
-      let marketData;
+      let allMarketData = [];
+
       try {
-        const res = await fetch(MARKET_URL(serverId));
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        marketData = await res.json();
+        if (serverId === "all") {
+          const requests = [];
+
+          for (let i = 0; i <= 32; i++) {
+            requests.push(
+              fetch(MARKET_URL(i))
+                .then(res => res.ok ? res.json() : [])
+                .then(data => data.map(item => ({
+                  ...item,
+                  serverId: item.serverId ?? i
+                })))
+                .catch(() => [])
+            );
+          }
+
+          const results = await Promise.all(requests);
+          allMarketData = results.flat();
+        } else {
+          const res = await fetch(MARKET_URL(serverId));
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const data = await res.json();
+          allMarketData = data.map(item => ({
+            ...item,
+            serverId: item.serverId ?? serverId
+          }));
+        }
       } catch (err) {
         setStatus(`Ошибка загрузки данных: ${err.message}`);
         resultsEl.innerHTML = `
@@ -650,7 +768,7 @@
             </div>
             <div class="fw-bold mb-1">Не удалось загрузить данные</div>
             <div class="text-secondary">
-              Не удалось загрузить маркетплейс для сервера ${serverId}.
+              Не удалось загрузить маркетплейс для выбранного сервера.
             </div>
           </div>
         `;
@@ -659,7 +777,7 @@
 
       const found = [];
 
-      for (const stall of marketData) {
+      for (const stall of allMarketData) {
         const itemsSell = Array.isArray(stall.items_sell) ? stall.items_sell : [];
         const pricesSell = Array.isArray(stall.price_sell) ? stall.price_sell : [];
         const countsSell = Array.isArray(stall.count_sell) ? stall.count_sell : [];
@@ -673,7 +791,6 @@
               lavkaUid: stall.LavkaUid,
               username: stall.username,
               serverId: stall.serverId,
-              rawItem,
               itemId,
               itemName: targetItem.name,
               price: pricesSell[i] ?? null,
@@ -685,12 +802,12 @@
 
       currentResults = found;
       currentTargetItem = targetItem;
-      currentServerId = serverId;
+      currentServerId = displayServer;
 
-      renderMeta(targetItem, serverId, found.length);
+      renderMeta(targetItem, displayServer, found.length);
       renderResults(found);
 
-      setStatus(found.length ? `Готово. Найдено лотов: ${found.length}` : "Ничего не найдено.");
+      setStatus(found.length ? "Поиск завершён." : "Ничего не найдено.");
     }
 
     function applyTheme(theme) {
@@ -708,6 +825,7 @@
 
     function initTheme() {
       const savedTheme = localStorage.getItem("arz-theme");
+
       if (savedTheme === "light" || savedTheme === "dark") {
         applyTheme(savedTheme);
         return;
@@ -719,16 +837,20 @@
 
     itemInput.addEventListener("input", () => {
       const query = itemInput.value.trim();
+
       if (!query) {
         hideSuggestions();
         return;
       }
+
       showSuggestions(findItemMatches(query));
     });
 
     itemInput.addEventListener("focus", () => {
       const query = itemInput.value.trim();
+
       if (!query) return;
+
       showSuggestions(findItemMatches(query));
     });
 
