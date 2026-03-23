@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arz Market Search</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #f3f4f6;
+      margin: 0;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 28px;
+    }
+
+    .panel {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 220px;
+      flex: 1;
+    }
+
+    label {
+      font-size: 14px;
+      color: #d1d5db;
+    }
+
+    input, select, button {
+      border: 1px solid #4b5563;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input, select {
+      background: #111827;
+      color: #fff;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+      border: none;
+      min-width: 160px;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .muted {
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
+    .status {
+      margin: 12px 0;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .result {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .result h3 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    .cell {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .cell b {
+      display: block;
+      margin-bottom: 6px;
+      color: #93c5fd;
+    }
+
+    .empty {
+      color: #fca5a5;
+      padding: 8px 0;
+    }
+
+    .hint {
+      margin-top: 8px;
+      color: #a7f3d0;
+      font-size: 13px;
+    }
+
+    code {
+      background: #111827;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Поиск предмета по лавкам Arz Market</h1>
+
+    <div class="panel">
+      <div class="row">
+        <div class="field">
+          <label for="itemInput">Название предмета или ID</label>
+          <input
+            id="itemInput"
+            type="text"
+            placeholder="Например: Бандана или 22"
+          />
+        </div>
+
+        <div class="field" style="max-width: 180px;">
+          <label for="serverSelect">Сервер</label>
+          <select id="serverSelect"></select>
+        </div>
+
+        <div class="field" style="max-width: 180px;">
+          <button id="searchBtn">Найти</button>
+        </div>
+      </div>
+
+      <div class="hint">
+        Можно вводить часть названия. Если совпадений по названию несколько — покажется список найденных ID.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="muted">
+        Источник предметов: <code>items.json</code><br>
+        Источник рынка: <code>/api/getSelectedMarketplace/{serverId}</code>
+      </div>
+      <div id="status" class="status">Готово.</div>
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    const ITEMS_URL = "https://raw.githubusercontent.com/FREYM1337/forumnick/main/ArzMarketV3/items.json";
+    const MARKET_URL = (serverId) => `https://api.arz.market/api/getSelectedMarketplace/${serverId}`;
+
+    const itemInput = document.getElementById("itemInput");
+    const serverSelect = document.getElementById("serverSelect");
+    const searchBtn = document.getElementById("searchBtn");
+    const statusEl = document.getElementById("status");
+    const resultsEl = document.getElementById("results");
+
+    let itemsMap = {};
+    let itemsEntries = [];
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function formatNumber(num) {
+      try {
+        return Number(num).toLocaleString("ru-RU");
+      } catch {
+        return String(num);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[m]));
+    }
+
+    function extractItemId(value) {
+      if (typeof value === "number") return value;
+
+      if (typeof value === "string") {
+        const match = value.match(/^(\d+)/);
+        if (match) return Number(match[1]);
+      }
+
+      return null;
+    }
+
+    function fillServers() {
+      for (let i = 0; i <= 32; i++) {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = i;
+        serverSelect.appendChild(option);
+      }
+    }
+
+    async function loadItems() {
+      setStatus("Загружаю список предметов...");
+      const res = await fetch(ITEMS_URL);
+      if (!res.ok) {
+        throw new Error(`Не удалось загрузить items.json: HTTP ${res.status}`);
+      }
+
+      itemsMap = await res.json();
+      itemsEntries = Object.entries(itemsMap).map(([id, name]) => ({
+        id: Number(id),
+        name: String(name)
+      }));
+
+      setStatus(`Загружено предметов: ${itemsEntries.length}`);
+    }
+
+    function findItemMatches(query) {
+      const q = query.trim().toLowerCase();
+      if (!q) return [];
+
+      // Если ввели ID
+      if (/^\d+$/.test(q)) {
+        const id = Number(q);
+        if (itemsMap[String(id)]) {
+          return [{
+            id,
+            name: itemsMap[String(id)]
+          }];
+        }
+        return [];
+      }
+
+      // Иначе поиск по названию
+      return itemsEntries.filter(item =>
+        item.name.toLowerCase().includes(q)
+      );
+    }
+
+    async function searchItem() {
+      const query = itemInput.value.trim();
+      const serverId = serverSelect.value;
+
+      resultsEl.innerHTML = "";
+
+      if (!query) {
+        setStatus("Введите название предмета или ID.");
+        return;
+      }
+
+      let matches = findItemMatches(query);
+
+      if (matches.length === 0) {
+        setStatus("Предмет не найден в items.json.");
+        return;
+      }
+
+      // Если найдено слишком много совпадений — покажем список
+      if (matches.length > 1) {
+        const preview = matches.slice(0, 50).map(item =>
+          `<div class="result">
+            <h3>${escapeHtml(item.name)}</h3>
+            <div class="grid">
+              <div class="cell"><b>ID предмета</b>${item.id}</div>
+            </div>
+          </div>`
+        ).join("");
+
+        resultsEl.innerHTML = preview;
+        setStatus(`Найдено несколько предметов: ${matches.length}. Уточни название или введи ID.`);
+        return;
+      }
+
+      const targetItem = matches[0];
+      setStatus(`Ищу предмет "${targetItem.name}" (ID: ${targetItem.id}) на сервере ${serverId}...`);
+
+      let marketData;
+      try {
+        const res = await fetch(MARKET_URL(serverId));
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        marketData = await res.json();
+      } catch (err) {
+        setStatus(`Ошибка загрузки маркетплейса: ${err.message}`);
+        return;
+      }
+
+      const found = [];
+
+      for (const stall of marketData) {
+        const itemsSell = Array.isArray(stall.items_sell) ? stall.items_sell : [];
+        const pricesSell = Array.isArray(stall.price_sell) ? stall.price_sell : [];
+        const countsSell = Array.isArray(stall.count_sell) ? stall.count_sell : [];
+
+        for (let i = 0; i < itemsSell.length; i++) {
+          const rawItem = itemsSell[i];
+          const itemId = extractItemId(rawItem);
+
+          if (itemId === targetItem.id) {
+            found.push({
+              lavkaUid: stall.LavkaUid,
+              username: stall.username,
+              serverId: stall.serverId,
+              rawItem,
+              itemId,
+              itemName: targetItem.name,
+              price: pricesSell[i] ?? null,
+              count: countsSell[i] ?? null
+            });
+          }
+        }
+      }
+
+      if (found.length === 0) {
+        resultsEl.innerHTML = `<div class="empty">На сервере ${serverId} этот предмет не найден в продаже.</div>`;
+        setStatus(`Ничего не найдено.`);
+        return;
+      }
+
+      resultsEl.innerHTML = found.map(entry => `
+        <div class="result">
+          <h3>${escapeHtml(entry.itemName)}</h3>
+          <div class="grid">
+            <div class="cell"><b>ID предмета</b>${entry.itemId}</div>
+            <div class="cell"><b>Сервер</b>${entry.serverId}</div>
+            <div class="cell"><b>Номер лавки</b>${entry.lavkaUid}</div>
+            <div class="cell"><b>Продавец</b>${escapeHtml(entry.username)}</div>
+            <div class="cell"><b>Цена</b>${entry.price !== null ? formatNumber(entry.price) : "—"}</div>
+            <div class="cell"><b>Количество</b>${entry.count !== null ? entry.count : "—"}</div>
+            <div class="cell"><b>Значение в items_sell</b>${escapeHtml(String(entry.rawItem))}</div>
+          </div>
+        </div>
+      `).join("");
+
+      setStatus(`Найдено лотов: ${found.length}`);
+    }
+
+    searchBtn.addEventListener("click", searchItem);
+
+    itemInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        searchItem();
+      }
+    });
+
+    (async () => {
+      fillServers();
+      try {
+        await loadItems();
+      } catch (err) {
+        setStatus(`Ошибка: ${err.message}`);
+      }
+    })();
+  </script>
+</body>
+</html>
