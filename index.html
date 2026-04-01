@@ -294,6 +294,17 @@
                   <select id="serverSelect" class="form-select"></select>
                 </div>
 
+                <div class="col-12 col-md-4 col-lg-2">
+                  <label class="form-label">
+                    <i class="ti ti-exchange"></i>
+                    Режим
+                  </label>
+                  <select id="marketModeSelect" class="form-select">
+                    <option value="sell">Продажа</option>
+                    <option value="buy">Покупка</option>
+                  </select>
+                </div>
+
                 <div class="col-12 col-md-4 col-lg-3">
                   <label class="form-label">
                     <i class="ti ti-sort-ascending-2"></i>
@@ -355,6 +366,7 @@
     const itemInput = document.getElementById("itemInput");
     const serverSelect = document.getElementById("serverSelect");
     const sortSelect = document.getElementById("sortSelect");
+    const marketModeSelect = document.getElementById("marketModeSelect");
     const searchBtn = document.getElementById("searchBtn");
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results");
@@ -371,6 +383,7 @@
     let currentResults = [];
     let currentTargetItem = null;
     let currentServerId = null;
+    let currentMarketMode = "sell";
 
     function escapeHtml(str) {
       return String(str).replace(/[&<>"']/g, (m) => ({
@@ -571,21 +584,39 @@
       hideSuggestions();
     }
 
-    function renderMeta(targetItem, serverId, count) {
+    function getModeLabel(mode) {
+      return mode === "buy" ? "Покупка" : "Продажа";
+    }
+
+    function getModeVerb(mode) {
+      return mode === "buy" ? "покупает" : "продаёт";
+    }
+
+    function getModeBadgeClass(mode) {
+      return mode === "buy" ? "bg-azure-lt" : "bg-green-lt";
+    }
+
+    function renderMeta(targetItem, serverId, count, mode) {
       resultsMetaEl.innerHTML = `
-        <div class="col-12 col-md-6 col-xl-4">
+        <div class="col-12 col-md-6 col-xl-3">
           <div class="card-stat">
             <div class="text-secondary small mb-1"><i class="ti ti-package"></i> Предмет</div>
             <div class="fw-bold">${escapeHtml(targetItem.name)}</div>
           </div>
         </div>
-        <div class="col-6 col-md-6 col-xl-4">
+        <div class="col-6 col-md-6 col-xl-3">
           <div class="card-stat">
             <div class="text-secondary small mb-1"><i class="ti ti-server"></i> Сервер</div>
             <div class="fw-bold mono">${escapeHtml(String(serverId))}</div>
           </div>
         </div>
-        <div class="col-6 col-md-12 col-xl-4">
+        <div class="col-6 col-md-6 col-xl-3">
+          <div class="card-stat">
+            <div class="text-secondary small mb-1"><i class="ti ti-exchange"></i> Режим</div>
+            <div class="fw-bold mono">${getModeLabel(mode)}</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
           <div class="card-stat">
             <div class="text-secondary small mb-1"><i class="ti ti-list-search"></i> Найдено</div>
             <div class="fw-bold mono">${count}</div>
@@ -609,7 +640,7 @@
       });
     }
 
-    function renderResults(found) {
+    function renderResults(found, mode) {
       if (!found.length) {
         resultsEl.innerHTML = `
           <div class="empty-state">
@@ -618,7 +649,7 @@
             </div>
             <div class="fw-bold mb-1">Ничего не найдено</div>
             <div class="text-secondary">
-              На выбранном сервере этот предмет сейчас не найден в продаже.
+              На выбранном сервере этот предмет сейчас не найден в режиме «${escapeHtml(getModeLabel(mode))}».
             </div>
           </div>
         `;
@@ -639,7 +670,7 @@
                       <i class="ti ti-user"></i>${escapeHtml(entry.username || "—")}
                     </div>
                   </div>
-                  <span class="badge bg-green-lt">
+                  <span class="badge ${getModeBadgeClass(mode)}">
                     <i class="ti ti-cash"></i>
                     ${entry.price != null ? formatNumber(entry.price) : "—"}
                   </span>
@@ -669,12 +700,17 @@
 
                   <div class="col-6">
                     <div class="text-secondary small">
-                      <i class="ti ti-wallet"></i>Цена
+                      <i class="ti ti-wallet"></i>${getModeLabel(mode)}
                     </div>
                     <div class="price-good">
                       ${entry.price != null ? formatNumber(entry.price) : "—"}
                     </div>
                   </div>
+                </div>
+
+                <div class="mt-3 text-secondary small">
+                  <i class="ti ti-info-circle"></i>
+                  Игрок ${escapeHtml(getModeVerb(mode))} этот предмет.
                 </div>
               </div>
             </div>
@@ -685,13 +721,14 @@
 
     function rerenderCurrentResults() {
       if (!currentTargetItem || currentServerId == null) return;
-      renderMeta(currentTargetItem, currentServerId, currentResults.length);
-      renderResults(currentResults);
+      renderMeta(currentTargetItem, currentServerId, currentResults.length, currentMarketMode);
+      renderResults(currentResults, currentMarketMode);
     }
 
     async function searchItem() {
       const query = itemInput.value.trim();
       const serverId = serverSelect.value;
+      const marketMode = marketModeSelect.value;
 
       resultsEl.innerHTML = "";
       resultsMetaEl.innerHTML = "";
@@ -727,7 +764,7 @@
       const targetItem = matches[0];
       const displayServer = serverId === "all" ? "Все сервера" : `Сервер ${serverId}`;
 
-      setStatus(`Ищу ${targetItem.name}...`);
+      setStatus(`Ищу ${targetItem.name} (${getModeLabel(marketMode).toLowerCase()})...`);
 
       let allMarketData = [];
 
@@ -776,14 +813,17 @@
       }
 
       const found = [];
+      const itemsKey = marketMode === "buy" ? "items_buy" : "items_sell";
+      const pricesKey = marketMode === "buy" ? "price_buy" : "price_sell";
+      const countsKey = marketMode === "buy" ? "count_buy" : "count_sell";
 
       for (const stall of allMarketData) {
-        const itemsSell = Array.isArray(stall.items_sell) ? stall.items_sell : [];
-        const pricesSell = Array.isArray(stall.price_sell) ? stall.price_sell : [];
-        const countsSell = Array.isArray(stall.count_sell) ? stall.count_sell : [];
+        const itemsList = Array.isArray(stall[itemsKey]) ? stall[itemsKey] : [];
+        const pricesList = Array.isArray(stall[pricesKey]) ? stall[pricesKey] : [];
+        const countsList = Array.isArray(stall[countsKey]) ? stall[countsKey] : [];
 
-        for (let i = 0; i < itemsSell.length; i++) {
-          const rawItem = itemsSell[i];
+        for (let i = 0; i < itemsList.length; i++) {
+          const rawItem = itemsList[i];
           const itemId = extractItemId(rawItem);
 
           if (itemId === targetItem.id) {
@@ -793,8 +833,8 @@
               serverId: stall.serverId,
               itemId,
               itemName: targetItem.name,
-              price: pricesSell[i] ?? null,
-              count: countsSell[i] ?? null
+              price: pricesList[i] ?? null,
+              count: countsList[i] ?? null
             });
           }
         }
@@ -803,11 +843,12 @@
       currentResults = found;
       currentTargetItem = targetItem;
       currentServerId = displayServer;
+      currentMarketMode = marketMode;
 
-      renderMeta(targetItem, displayServer, found.length);
-      renderResults(found);
+      renderMeta(targetItem, displayServer, found.length, marketMode);
+      renderResults(found, marketMode);
 
-      setStatus(found.length ? "Поиск завершён." : "Ничего не найдено.");
+      setStatus(found.length ? `Поиск завершён: ${getModeLabel(marketMode).toLowerCase()}.` : "Ничего не найдено.");
     }
 
     function applyTheme(theme) {
